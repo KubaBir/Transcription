@@ -1,12 +1,12 @@
 from django.shortcuts import render
-from .models import AudioFile
 
-import whisper, tempfile, os
+import whisper
+import tempfile
+import os
 
 
 def index(request):
-    if request.method=="POST":
-        print("essa")
+    if request.method == "POST":
         file = request.FILES["audio"]
 
         with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
@@ -20,6 +20,5 @@ def index(request):
 
         finally:
             os.unlink(f.name)
-
 
     return render(request, "transcription/index.html")

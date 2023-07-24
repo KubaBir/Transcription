@@ -16,7 +16,8 @@
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <label for="audio"><strong>Upload Audio: </strong></label>
-            <input type="file" name="audio" accept="audio/*"><br><br>
+            <input type="file" name="audio" accept="audio/*">
+            <br><br>
             <button type="submit">Submit</button>
         </form>
     </div>
