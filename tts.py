@@ -1,10 +1,20 @@
 from TTS.api import TTS
+import tempfile
+import os
 
-# List available 🐸TTS models and choose the first one
-print(TTS.list_models())
-model_name = TTS.list_models()[1]
+
+print(*TTS.list_models(), sep='\n')
+
 # Init TTS
-tts = TTS(model_name="tts_models/en/blizzard2013/capacitron-t2-c150_v2",
-          progress_bar=True)
+tts = TTS(model_name="tts_models/es/mai/tacotron2-DDC")
+print(tts.speakers)
+print(tts.languages)
+tts.tts_to_file("Ahora me he convertido en muerte, el destructor de mundos.",
+                file_path="output.wav")
 
-tts.tts_to_file(text="My name is Jack", file_path="output.wav")
+# with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+#     tts = TTS(model_name="tts_models/pl/mai_female/vits")
+#     tts.tts_to_file(text="W chwili, kiedy zastanawiasz się czy kogoś kochasz, przestałeś go już kochać na zawsze.",
+#                     file_path='output.wav')
+# print(f.name)
+# os.system("afplay " + f.name)

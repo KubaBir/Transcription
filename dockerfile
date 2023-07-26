@@ -11,4 +11,5 @@ RUN apt-get update && apt-get install git -y
 RUN apt-get -y install gcc mono-mcs build-essential
 RUN pip3 install -r requirements.txt
 RUN pip3 install "git+https://github.com/openai/whisper.git" 
-RUN apt-get install -y espeak ffmpeg libespeak1
+RUN apt-get install -y ffmpeg
+# RUN apt-get install -y espeak ffmpeg libespeak1

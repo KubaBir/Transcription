@@ -2,9 +2,41 @@
     border: 1px solid #c5c5c5;
     border-radius: 4px;
     aspect-ratio: 3 / 2;
-    width: 50%;
+    width: 60%;
     margin: 2em auto;
     padding: 10px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow-y: scroll;
+}
+
+.message {
+    padding: 10px 8px;
+    margin: 0.5em;
+    background-color: aquamarine;
+    border-radius: 4px;
+
+    display: grid;
+    grid-template-columns: 2fr;
+
+}
+
+.original {
+    /* position: relative; */
+    grid-row-start: 1;
+    grid-column-start: 1;
+}
+
+.translation {
+    grid-row-start: 1;
+    grid-column-start: 1;
+    visibility: hidden;
+}
+
+.btn_translate {
+    grid-column-start: 2;
 }
 
 #input_group {

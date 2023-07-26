@@ -1,5 +1,5 @@
 Django >=4.2,<4.3
 djangorestframework
-TTS
+# TTS
 # celery >= 5.2,<5.3
 # redis

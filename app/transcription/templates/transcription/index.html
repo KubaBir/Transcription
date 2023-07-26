@@ -9,13 +9,13 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href={% static 'styles.css' %} />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+
     <title>Whisper</title>
 </head>
 
 <body>
-    <div style="display:flex;justify-content:center;align-items:center;margin-top: 20px;">
-        <p style="font-size: 50px;">Whisper</p>
-    </div>
+    <button onclick="insert()">insert msg</button>
     <div id="input_group">
         <div id="fileupload">
             <h2>Upload audio</h2>
@@ -45,33 +45,76 @@
 
     </div>
 
-    <div id="outputfield">
-
-    </div>
+    <div id="outputfield"></div>
 </body>
 
 </html>
 
 <script>
+    function insert() {
+        createMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
+    }
+
     const spinner = document.getElementById('spinner')
     const fileUpload = document.getElementById('audio');
     const playback1 = document.getElementById('playback1');
     const submitButton1 = document.getElementById('submitButton1');
 
-    submitButton1.addEventListener('click', processAudio);
+    submitButton1.addEventListener('click', saveAudio);
 
     fileUpload.addEventListener('change', function (e) {
         submitButton1.style.visibility = "visible";
+        submitButton1.disabled = false;
         playback1.style.visibility = "visible";
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
         playback1.src = url;
     });
 
-    function processAudio() {
+    function createMessage(data) {
+        let d = document.createElement("div");
+        d.className = 'message';
+
+        let original = document.createElement("div");
+        original.textContent = data["original"];
+        original.className = 'original';
+
+        let translation = document.createElement("div");
+        translation.textContent = data["translated"];
+        translation.className = 'translation';
+
+        let btn_translate = document.createElement("button");
+        btn_translate.textContent = 'X'
+        btn_translate.className = 'btn_translate';
+        btn_translate.addEventListener('click', function () {
+            let f = this.parentElement.firstChild;
+            let s = f.nextSibling;
+            if (s.textContent == "") return false;
+            console.log(this.parentElement);
+
+            if (f.style.visibility == 'hidden') {
+                f.style.visibility = 'visible';
+                let s = f.nextSibling;
+                s.style.visibility = 'hidden';
+            } else {
+                f.style.visibility = 'hidden';
+                let s = f.nextSibling;
+                s.style.visibility = 'visible';
+            }
+        })
+        d.appendChild(original);
+        d.appendChild(translation);
+        d.appendChild(btn_translate);
+        let container = document.getElementById("outputfield");
+        container.appendChild(d);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function saveAudio() {
         if (document.getElementById("audio").value == "") {
             return false;
         }
+        submitButton1.disabled = true;
         spinner.style.visibility = "visible";
         var CSRF_TOKEN = '{{ csrf_token }}';
         var input = document.querySelector('input[type="file"]')
@@ -84,8 +127,7 @@
         })
             .then((response) => response.json())
             .then((data) => {
-                console.log(data);
-                document.getElementById("outputfield").textContent = data;
+                createMessage(data);
                 spinner.style.visibility = "hidden";
                 playback1.style.visibility = 'hidden';
                 submitButton1.style.visibility = 'hidden';
@@ -156,8 +198,7 @@
         })
             .then((response) => response.json())
             .then((data) => {
-                console.log(data);
-                document.getElementById("outputfield").textContent = data;
+                createMessage(data);
                 playback2.style.visibility = "hidden"
                 saveAudioButton.style.visibility = "hidden"
                 spinner.style.visibility = "hidden";
