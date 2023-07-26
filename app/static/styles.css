@@ -1,0 +1,96 @@
+#outputfield {
+    border: 1px solid #c5c5c5;
+    border-radius: 4px;
+    aspect-ratio: 3 / 2;
+    width: 50%;
+    margin: 2em auto;
+    padding: 10px;
+}
+
+#input_group {
+    display: flex;
+}
+
+#fileupload {
+    width: 50%;
+    text-align: center;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#recording {
+    width: 50%;
+    text-align: center;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#start {
+    border: 2px solid gray;
+    border-radius: 50%;
+    height: 75px;
+    width: 75px;
+    margin-bottom: 20px;
+}
+
+.audioslider {
+    margin-bottom: 20px;
+    visibility: hidden;
+    margin-top: auto;
+}
+
+#audio {
+    margin-top: 20px;
+    margin-left: 30px;
+}
+
+
+/* SPINNER */
+.lds-ring {
+    display: inline-block;
+    position: relative;
+    width: 80px;
+    height: 80px;
+
+    visibility: hidden;
+    margin-top: auto;
+}
+
+.lds-ring div {
+    box-sizing: border-box;
+    display: block;
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    margin: 8px;
+    border: 8px solid #dfc;
+    border-radius: 50%;
+    animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    border-color: #dfc transparent transparent transparent;
+}
+
+.lds-ring div:nth-child(1) {
+    animation-delay: -0.45s;
+}
+
+.lds-ring div:nth-child(2) {
+    animation-delay: -0.3s;
+}
+
+.lds-ring div:nth-child(3) {
+    animation-delay: -0.15s;
+}
+
+@keyframes lds-ring {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}

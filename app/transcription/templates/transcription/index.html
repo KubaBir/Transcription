@@ -1,3 +1,6 @@
+{% load static %}
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -5,22 +8,159 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <link rel="stylesheet" href={% static 'styles.css' %} />
+    <title>Whisper</title>
 </head>
 
 <body>
-    <div style="display:flex;justify-content:center;align-items:center;margin-top: 100px;">
-        <p style="font-size: 50px;">Upload</p>
+    <div style="display:flex;justify-content:center;align-items:center;margin-top: 20px;">
+        <p style="font-size: 50px;">Whisper</p>
     </div>
-    <div id="fileform" style="display:flex;justify-content:center;align-items:center;margin-top: 10px;">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <label for="audio"><strong>Upload Audio: </strong></label>
-            <input type="file" name="audio" accept="audio/*">
-            <br><br>
-            <button type="submit">Submit</button>
-        </form>
+    <div id="input_group">
+        <div id="fileupload">
+            <h2>Upload audio</h2>
+            <input type="file" id="audio" name="audio" accept="audio/*"><br>
+            <audio id="playback1" class="audioslider" controls=""></audio>
+            <button type="submit" id="submitButton1" style="visibility: hidden;">Submit</button>
+        </div>
+        <div id="spinner" class="lds-ring">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+        <div id="recording">
+            <h2>Record audio</h2>
+            <button id="start">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1.75em"
+                    viewBox="0 0 352 512"><!--! Font Awesome Free 6.4.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2023 Fonticons, Inc. -->
+                    <path
+                        d="M176 352c53.02 0 96-42.98 96-96V96c0-53.02-42.98-96-96-96S80 42.98 80 96v160c0 53.02 42.98 96 96 96zm160-160h-16c-8.84 0-16 7.16-16 16v48c0 74.8-64.49 134.82-140.79 127.38C96.71 376.89 48 317.11 48 250.3V208c0-8.84-7.16-16-16-16H16c-8.84 0-16 7.16-16 16v40.16c0 89.64 63.97 169.55 152 181.69V464H96c-8.84 0-16 7.16-16 16v16c0 8.84 7.16 16 16 16h160c8.84 0 16-7.16 16-16v-16c0-8.84-7.16-16-16-16h-56v-33.77C285.71 418.47 352 344.9 352 256v-48c0-8.84-7.16-16-16-16z" />
+                </svg>
+            </button>
+            <audio id="playback2" class="audioslider" controls=""></audio>
+            <button id="submitButton2" style="visibility: hidden;">Save</button>
+        </div>
+
+
+    </div>
+
+    <div id="outputfield">
+
     </div>
 </body>
 
 </html>
+
+<script>
+    const spinner = document.getElementById('spinner')
+    const fileUpload = document.getElementById('audio');
+    const playback1 = document.getElementById('playback1');
+    const submitButton1 = document.getElementById('submitButton1');
+
+    submitButton1.addEventListener('click', processAudio);
+
+    fileUpload.addEventListener('change', function (e) {
+        submitButton1.style.visibility = "visible";
+        playback1.style.visibility = "visible";
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        playback1.src = url;
+    });
+
+    function processAudio() {
+        if (document.getElementById("audio").value == "") {
+            return false;
+        }
+        spinner.style.visibility = "visible";
+        var CSRF_TOKEN = '{{ csrf_token }}';
+        var input = document.querySelector('input[type="file"]')
+        var data = new FormData()
+        data.append('audio', input.files[0])
+
+        fetch(`/api/process/`, {
+            method: "POST",
+            body: data
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                document.getElementById("outputfield").textContent = data;
+                spinner.style.visibility = "hidden";
+                playback1.style.visibility = 'hidden';
+                submitButton1.style.visibility = 'hidden';
+                fileUpload.value = "";
+            })
+    }
+</script>
+
+<script>
+    const startButton = document.getElementById('start');
+    const saveAudioButton = document.getElementById('submitButton2');
+    const recordedAudioContainer = document.getElementById('recordedAudioContainer');
+    const playback2 = document.getElementById('playback2');
+    let chunks = [];
+    let mediaRecorder = null;
+    let audioBlob = null;
+
+    startButton.addEventListener('click', record);
+    saveAudioButton.addEventListener('click', saveRecording);
+
+    function record() {
+        startButton.style.backgroundColor = "green";
+        saveAudioButton.disabled = false;
+
+        if (!mediaRecorder) {
+            navigator.mediaDevices.getUserMedia({
+                audio: true,
+            })
+                .then((stream) => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
+                    mediaRecorder.onstop = mediaRecorderStop;
+                })
+                .catch((err) => {
+                    alert(`The following error occurred: ${err}`);
+                    startButton.style.backgroundColor = "red";
+                });
+        } else {
+            mediaRecorder.stop();
+        }
+    };
+
+    function mediaRecorderDataAvailable(e) {
+        chunks.push(e.data);
+    }
+
+    function mediaRecorderStop() {
+        startButton.style.backgroundColor = "white";
+        playback2.style.visibility = "visible"
+        saveAudioButton.style.visibility = "visible"
+        audioBlob = new Blob(chunks, { type: 'audio/mp3' });
+
+        const audioURL = window.URL.createObjectURL(audioBlob);
+        playback2.src = audioURL;
+        mediaRecorder = null;
+        chunks = [];
+    }
+
+    function saveRecording() {
+        saveAudioButton.disabled = true;
+        spinner.style.visibility = "visible";
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.mp3');
+        fetch('/api/process/', {
+            method: 'POST',
+            body: formData
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                document.getElementById("outputfield").textContent = data;
+                playback2.style.visibility = "hidden"
+                saveAudioButton.style.visibility = "hidden"
+                spinner.style.visibility = "hidden";
+            })
+    }
+</script>
