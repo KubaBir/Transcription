@@ -45,6 +45,10 @@
 
     </div>
 
+    <audio controls id="audio-player">
+        <source src="" type="audio/wav">
+    </audio>
+
     <div id="outputfield"></div>
 </body>
 
@@ -59,9 +63,7 @@
     const fileUpload = document.getElementById('audio');
     const playback1 = document.getElementById('playback1');
     const submitButton1 = document.getElementById('submitButton1');
-
     submitButton1.addEventListener('click', saveAudio);
-
     fileUpload.addEventListener('change', function (e) {
         submitButton1.style.visibility = "visible";
         submitButton1.disabled = false;
@@ -110,13 +112,14 @@
         container.scrollTop = container.scrollHeight;
     }
 
+
     function saveAudio() {
+
         if (document.getElementById("audio").value == "") {
             return false;
         }
         submitButton1.disabled = true;
         spinner.style.visibility = "visible";
-        var CSRF_TOKEN = '{{ csrf_token }}';
         var input = document.querySelector('input[type="file"]')
         var data = new FormData()
         data.append('audio', input.files[0])
@@ -132,6 +135,31 @@
                 playback1.style.visibility = 'hidden';
                 submitButton1.style.visibility = 'hidden';
                 fileUpload.value = "";
+
+                return data['original'];
+            })
+            .then((prompt) => getAudio(prompt));
+    }
+
+    function getAudio(text) {
+        console.log(text);
+        data = {
+            'prompt': text
+        }
+        fetch(`/api/voiceover/`, {
+            method: "POST",
+            body: JSON.stringify({
+                prompt: text
+            }),
+            headers: {
+                "Content-Type": "application/json",
+            },
+        })
+            .then(response => response.blob())
+            .then(audioBlob => {
+                const audioURL = URL.createObjectURL(audioBlob);
+                const audioPlayer = document.getElementById('audio-player');
+                audioPlayer.src = audioURL;
             })
     }
 </script>
@@ -198,6 +226,7 @@
         })
             .then((response) => response.json())
             .then((data) => {
+                console.log(data);
                 createMessage(data);
                 playback2.style.visibility = "hidden"
                 saveAudioButton.style.visibility = "hidden"
