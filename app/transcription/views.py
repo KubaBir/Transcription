@@ -10,10 +10,44 @@ import tempfile
 import os
 import whisper
 import json
+import translators as tr
 
 
 def index(request):
     return render(request, "transcription/index.html")
+
+
+class commandView(APIView):
+    def post(self, request):
+        file = request.FILES["audio"]
+
+        with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
+            for chunk in file.chunks():
+                f.write(chunk)
+            f.seek(0)
+
+        model = whisper.load_model("medium")
+        audio = whisper.load_audio(f.name)
+        audio = whisper.pad_or_trim(audio)
+
+        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        options = whisper.DecodingOptions(fp16=False)
+
+        command = whisper.decode(model, mel, options).text
+
+        return Response("Success", status.HTTP_200_OK)
+
+
+def process_command(command):
+    # Translate command to English
+    command = tr.translate_text(
+        command, to_language='en', translator='google').lower()
+
+    # Look for keywords
+    if 'translate' in command:
+        pass
+    elif 'read' in command:
+        pass
 
 
 class processAudio(ViewSet):
@@ -22,6 +56,8 @@ class processAudio(ViewSet):
     def create(self, request):
         print("Got a request")
         file = request.FILES["audio"]
+        to_language = request.data['to_language']
+        print(to_language)
         if not file:
             return Response("No file provided", status=status.HTTP_400_BAD_REQUEST)
 
@@ -35,14 +71,11 @@ class processAudio(ViewSet):
             audio = whisper.pad_or_trim(audio)
 
             mel = whisper.log_mel_spectrogram(audio).to(model.device)
-            _, probs = model.detect_language(mel)
             options = whisper.DecodingOptions(fp16=False)
-            translated = ""
-            lang = max(probs, key=probs.get)
-            if lang != 'en':
-                translated = whisper.decode(
-                    model, mel, options, task='translate').text
+
             original = whisper.decode(model, mel, options).text
+            translated = tr.translate_text(
+                original, to_language=to_language, translator='google')
 
         finally:
             os.unlink(f.name)
@@ -60,30 +93,41 @@ class getAudioResponse(APIView):
     permission_classes = []
 
     def post(self, request, format=None):
-        print(request.data)
-        audio_file_path = generate_tts(request.data['prompt'])
-
-        with open(audio_file_path, 'rb') as file:
-            audio_data = file.read()
+        prompt = request.data['prompt']
+        to_language = request.data['to_language']
+        audio_data, path = generate_tts(prompt, to_language)
 
         response = HttpResponse(audio_data, content_type='audio/wav')
-        response['Content-Disposition'] = f'attachment; filename={audio_file_path}'
+        response['Content-Disposition'] = f'attachment; filename={path}'
 
         return response
 
 
-def generate_tts(text, lang='pl'):
+def generate_tts(text, to_language='pl'):
+    # Translate to destination language
+    text = tr.translate_text(
+        text, to_language=to_language, translator='google')
+
+    # Create a file with read translation
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-        if lang == 'pl':
+        if to_language == 'pl':
             tts = TTS(model_name="tts_models/pl/mai_female/vits")
+            tts.tts_to_file(text=text, file_path=f.name)
+        elif to_language == 'en':
+            tts = TTS(model_name="tts_models/en/jenny/jenny")
+            tts.tts_to_file(text=text, file_path=f.name)
+        elif to_language == 'es':
+            tts = TTS(model_name="tts_models/es/css10/vits")
             tts.tts_to_file(text=text,
                             file_path=f.name)
         else:
-            tts = TTS(model_name="tts_models/multilingual/multi-dataset/your_tts")
-            tts.tts_to_file(text=text,
-                            speaker=tts.speakers[4],
-                            language=tts.languages[0],
-                            file_path=f.name)
+            raise Exception("Language not supported")
+
         # FOR TESTING
         # os.system("afplay " + f.name)
-    return f.name
+
+    with open(f.name, 'rb') as file:
+        audio_data = file.read()
+    os.unlink(f.name)
+
+    return (audio_data, f.name)

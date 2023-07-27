@@ -2,7 +2,7 @@
     border: 1px solid #c5c5c5;
     border-radius: 4px;
     aspect-ratio: 3 / 2;
-    width: 60%;
+    width: 70%;
     margin: 2em auto;
     padding: 10px;
 
@@ -19,8 +19,12 @@
     border-radius: 4px;
 
     display: grid;
-    grid-template-columns: 2fr;
+    grid-template-columns: 3fr;
+    align-items: center;
+}
 
+.message_audio_player {
+    grid-column-start: 2;
 }
 
 .original {
@@ -36,7 +40,8 @@
 }
 
 .btn_translate {
-    grid-column-start: 2;
+    grid-column-start: 3;
+    margin-left: 10px;
 }
 
 #input_group {
@@ -78,6 +83,12 @@
 #audio {
     margin-top: 20px;
     margin-left: 30px;
+}
+
+#lang_selector {
+    margin-top: 1em;
+    height: 30px;
+    width: 50px;
 }
 
 

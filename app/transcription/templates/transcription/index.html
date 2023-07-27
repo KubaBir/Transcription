@@ -16,19 +16,31 @@
 
 <body>
     <button onclick="insert()">insert msg</button>
+    <button onclick="postCommand(document.getElementById('audio_input').files[0])
+    ">test command</button>
     <div id="input_group">
         <div id="fileupload">
             <h2>Upload audio</h2>
-            <input type="file" id="audio" name="audio" accept="audio/*"><br>
+            <input type="file" id="audio_input" name="audio_input" accept="audio/*"><br>
             <audio id="playback1" class="audioslider" controls=""></audio>
             <button type="submit" id="submitButton1" style="visibility: hidden;">Submit</button>
         </div>
-        <div id="spinner" class="lds-ring">
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; padding-top: 3rem;">
+            <label for="language">Language</label>
+            <select name="lan_selecetor" id="lang_selector">
+                <option value="pl">pl</option>
+                <option value="en">en</option>
+                <option value="es">es</option>
+            </select>
+            <div id="spinner" class="lds-ring">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
         </div>
+
         <div id="recording">
             <h2>Record audio</h2>
             <button id="start">
@@ -41,196 +53,11 @@
             <audio id="playback2" class="audioslider" controls=""></audio>
             <button id="submitButton2" style="visibility: hidden;">Save</button>
         </div>
-
-
     </div>
-
-    <audio controls id="audio-player">
-        <source src="" type="audio/wav">
-    </audio>
 
     <div id="outputfield"></div>
 </body>
 
+<script src="{% static 'scripts.js' %}"></script>
+
 </html>
-
-<script>
-    function insert() {
-        createMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
-    }
-
-    const spinner = document.getElementById('spinner')
-    const fileUpload = document.getElementById('audio');
-    const playback1 = document.getElementById('playback1');
-    const submitButton1 = document.getElementById('submitButton1');
-    submitButton1.addEventListener('click', saveAudio);
-    fileUpload.addEventListener('change', function (e) {
-        submitButton1.style.visibility = "visible";
-        submitButton1.disabled = false;
-        playback1.style.visibility = "visible";
-        const file = e.target.files[0];
-        const url = URL.createObjectURL(file);
-        playback1.src = url;
-    });
-
-    function createMessage(data) {
-        let d = document.createElement("div");
-        d.className = 'message';
-
-        let original = document.createElement("div");
-        original.textContent = data["original"];
-        original.className = 'original';
-
-        let translation = document.createElement("div");
-        translation.textContent = data["translated"];
-        translation.className = 'translation';
-
-        let btn_translate = document.createElement("button");
-        btn_translate.textContent = 'X'
-        btn_translate.className = 'btn_translate';
-        btn_translate.addEventListener('click', function () {
-            let f = this.parentElement.firstChild;
-            let s = f.nextSibling;
-            if (s.textContent == "") return false;
-            console.log(this.parentElement);
-
-            if (f.style.visibility == 'hidden') {
-                f.style.visibility = 'visible';
-                let s = f.nextSibling;
-                s.style.visibility = 'hidden';
-            } else {
-                f.style.visibility = 'hidden';
-                let s = f.nextSibling;
-                s.style.visibility = 'visible';
-            }
-        })
-        d.appendChild(original);
-        d.appendChild(translation);
-        d.appendChild(btn_translate);
-        let container = document.getElementById("outputfield");
-        container.appendChild(d);
-        container.scrollTop = container.scrollHeight;
-    }
-
-
-    function saveAudio() {
-
-        if (document.getElementById("audio").value == "") {
-            return false;
-        }
-        submitButton1.disabled = true;
-        spinner.style.visibility = "visible";
-        var input = document.querySelector('input[type="file"]')
-        var data = new FormData()
-        data.append('audio', input.files[0])
-
-        fetch(`/api/process/`, {
-            method: "POST",
-            body: data
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                createMessage(data);
-                spinner.style.visibility = "hidden";
-                playback1.style.visibility = 'hidden';
-                submitButton1.style.visibility = 'hidden';
-                fileUpload.value = "";
-
-                return data['original'];
-            })
-            .then((prompt) => getAudio(prompt));
-    }
-
-    function getAudio(text) {
-        console.log(text);
-        data = {
-            'prompt': text
-        }
-        fetch(`/api/voiceover/`, {
-            method: "POST",
-            body: JSON.stringify({
-                prompt: text
-            }),
-            headers: {
-                "Content-Type": "application/json",
-            },
-        })
-            .then(response => response.blob())
-            .then(audioBlob => {
-                const audioURL = URL.createObjectURL(audioBlob);
-                const audioPlayer = document.getElementById('audio-player');
-                audioPlayer.src = audioURL;
-            })
-    }
-</script>
-
-<script>
-    const startButton = document.getElementById('start');
-    const saveAudioButton = document.getElementById('submitButton2');
-    const recordedAudioContainer = document.getElementById('recordedAudioContainer');
-    const playback2 = document.getElementById('playback2');
-    let chunks = [];
-    let mediaRecorder = null;
-    let audioBlob = null;
-
-    startButton.addEventListener('click', record);
-    saveAudioButton.addEventListener('click', saveRecording);
-
-    function record() {
-        startButton.style.backgroundColor = "green";
-        saveAudioButton.disabled = false;
-
-        if (!mediaRecorder) {
-            navigator.mediaDevices.getUserMedia({
-                audio: true,
-            })
-                .then((stream) => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
-                    mediaRecorder.onstop = mediaRecorderStop;
-                })
-                .catch((err) => {
-                    alert(`The following error occurred: ${err}`);
-                    startButton.style.backgroundColor = "red";
-                });
-        } else {
-            mediaRecorder.stop();
-        }
-    };
-
-    function mediaRecorderDataAvailable(e) {
-        chunks.push(e.data);
-    }
-
-    function mediaRecorderStop() {
-        startButton.style.backgroundColor = "white";
-        playback2.style.visibility = "visible"
-        saveAudioButton.style.visibility = "visible"
-        audioBlob = new Blob(chunks, { type: 'audio/mp3' });
-
-        const audioURL = window.URL.createObjectURL(audioBlob);
-        playback2.src = audioURL;
-        mediaRecorder = null;
-        chunks = [];
-    }
-
-    function saveRecording() {
-        saveAudioButton.disabled = true;
-        spinner.style.visibility = "visible";
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.mp3');
-        fetch('/api/process/', {
-            method: 'POST',
-            body: formData
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                console.log(data);
-                createMessage(data);
-                playback2.style.visibility = "hidden"
-                saveAudioButton.style.visibility = "hidden"
-                spinner.style.visibility = "hidden";
-            })
-    }
-</script>
