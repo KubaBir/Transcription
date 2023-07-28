@@ -18,24 +18,50 @@ def index(request):
 
 
 class commandView(APIView):
+    supported_languages = {
+        'pl': 0,
+        'en': 0,
+        'es': 0,
+    }
+
     def post(self, request):
+        prompts = {
+            'pl': 'czytaj, przeczytaj, tłumacz, przetłumacz',
+            'en': 'read, translate',
+            'es': 'leer, traducir'
+        }
+        print("Got a command")
+
         file = request.FILES["audio"]
+        to_language = request.data['to_language']
 
         with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
             for chunk in file.chunks():
                 f.write(chunk)
             f.seek(0)
 
-        model = whisper.load_model("medium")
+        model = whisper.load_model("base")
         audio = whisper.load_audio(f.name)
         audio = whisper.pad_or_trim(audio)
 
         mel = whisper.log_mel_spectrogram(audio).to(model.device)
-        options = whisper.DecodingOptions(fp16=False)
+        # _, probs = model.detect_language(mel)
+
+        # for lang in supported_languages.keys():
+        #     supported_languages[lang] = probs[lang]
+        # print(supported_languages)
+
+        options = whisper.DecodingOptions(
+            fp16=False,
+            # language=max(supported_languages, key=supported_languages.get),
+            language=to_language,
+            prompt=prompts[to_language])
 
         command = whisper.decode(model, mel, options).text
+        print(command)
+        whisper.transcribe
 
-        return Response("Success", status.HTTP_200_OK)
+        return process_command(command)
 
 
 def process_command(command):
@@ -43,11 +69,15 @@ def process_command(command):
     command = tr.translate_text(
         command, to_language='en', translator='google').lower()
 
+    print(command)
+
     # Look for keywords
-    if 'translate' in command:
-        pass
+    if 'translat' in command:
+        return Response("translate", status.HTTP_200_OK)
     elif 'read' in command:
-        pass
+        return Response("read", status.HTTP_200_OK)
+    else:
+        return Response("other", status.HTTP_200_OK)
 
 
 class processAudio(ViewSet):
@@ -57,7 +87,6 @@ class processAudio(ViewSet):
         print("Got a request")
         file = request.FILES["audio"]
         to_language = request.data['to_language']
-        print(to_language)
         if not file:
             return Response("No file provided", status=status.HTTP_400_BAD_REQUEST)
 
