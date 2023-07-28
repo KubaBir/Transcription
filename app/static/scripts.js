@@ -14,6 +14,9 @@ let chunks = [];
 let mediaRecorder = null;
 let audioBlob = null;
 
+let latestPlayer = null;
+let latestTranslation = null;
+
 startButton.addEventListener('click', record);
 saveAudioButton.addEventListener('click', saveRecording);
 postCommandButton.addEventListener('click', postCommand);
@@ -30,7 +33,7 @@ fileUpload.addEventListener('change', function (e) {
 function postCommand(audioSource) {
     audioSource = audioBlob;
     const formData = new FormData();
-    formData.append('audio', audioSource, 'recording.mp3');
+    formData.append('audio', audioSource, filename = 'recording.wav');
     formData.append('to_language', langSelector.value);
 
     fetch('/api/command/', {
@@ -38,7 +41,16 @@ function postCommand(audioSource) {
         body: formData
     })
         .then((response) => response.json())
-        .then((data) => console.log(data))
+        .then((data) => {
+            console.log(data);
+            if (data == 'translate') {
+                latestTranslation.click();
+            } else if (data == 'read') {
+                latestPlayer.play();
+            }
+        })
+        .catch((errors) => console.log(errors))
+
 }
 
 
@@ -46,7 +58,7 @@ function getTransctipt(audioSource) {
     const formData = new FormData();
     formData.append('audio', audioSource, 'recording.mp3');
     formData.append('to_language', langSelector.value);
-    fetch('/api/process/', {
+    fetch('/api/transcribe/', {
         method: 'POST',
         body: formData
     })
@@ -64,7 +76,9 @@ function getTransctipt(audioSource) {
             return [data['original'], player];
 
         })
-        .then(([prompt, player]) => getAudio(prompt, player));
+        .then(([prompt, player]) => getAudio(prompt, player))
+        .catch((errors) => console.log(errors))
+
 }
 
 function createMessage(data) {
@@ -87,7 +101,6 @@ function createMessage(data) {
     let btn_translate = document.createElement("button");
     btn_translate.textContent = 'X'
     btn_translate.className = 'btn_translate';
-
     btn_translate.addEventListener('click', function () {
         let f = this.parentElement.firstChild;
         let s = f.nextSibling;
@@ -104,7 +117,6 @@ function createMessage(data) {
         }
     })
 
-
     d.appendChild(original);
     d.appendChild(translation);
     d.appendChild(player);
@@ -113,7 +125,8 @@ function createMessage(data) {
     container.appendChild(d);
     container.scrollTop = container.scrollHeight;
 
-    // console.log(player.src);
+    latestTranslation = btn_translate;
+    latestPlayer = player;
 
     return player;
 }
@@ -146,6 +159,8 @@ function getAudio(text, player) {
             const audioURL = URL.createObjectURL(audioBlob);
             player.src = audioURL;
         })
+        .catch((errors) => console.log(errors))
+
 }
 
 function record() {

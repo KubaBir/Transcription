@@ -1,15 +1,15 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 from TTS.api import TTS
-from .serializers import AudioSerializer
-from rest_framework.viewsets import ViewSet
+from .serializers import AudioSerializer, TTSSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.serializers import Serializer
+from rest_framework.parsers import MultiPartParser, FormParser
 import tempfile
 import os
 import whisper
-import json
 import translators as tr
 
 
@@ -18,11 +18,16 @@ def index(request):
 
 
 class commandView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
     supported_languages = {
         'pl': 0,
         'en': 0,
         'es': 0,
     }
+
+    def get_serializer(self, *args, **kwargs):
+        return AudioSerializer(*args, **kwargs)
 
     def post(self, request):
         prompts = {
@@ -32,42 +37,44 @@ class commandView(APIView):
         }
         print("Got a command")
 
-        file = request.FILES["audio"]
-        to_language = request.data['to_language']
+        serializer: Serializer = AudioSerializer(data=request.data)
+        if serializer.is_valid():
+            file = request.FILES["audio"]
+            to_language = request.data['to_language']
 
-        with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-            f.seek(0)
+            with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+                f.seek(0)
 
-        model = whisper.load_model("base")
-        audio = whisper.load_audio(f.name)
-        audio = whisper.pad_or_trim(audio)
+            model = whisper.load_model("base")
+            audio = whisper.load_audio(f.name)
+            audio = whisper.pad_or_trim(audio)
 
-        mel = whisper.log_mel_spectrogram(audio).to(model.device)
-        # _, probs = model.detect_language(mel)
+            mel = whisper.log_mel_spectrogram(audio).to(model.device)
+            # _, probs = model.detect_language(mel)
 
-        # for lang in supported_languages.keys():
-        #     supported_languages[lang] = probs[lang]
-        # print(supported_languages)
+            # for lang in supported_languages.keys():
+            #     supported_languages[lang] = probs[lang]
+            # print(supported_languages)
 
-        options = whisper.DecodingOptions(
-            fp16=False,
-            # language=max(supported_languages, key=supported_languages.get),
-            language=to_language,
-            prompt=prompts[to_language])
+            options = whisper.DecodingOptions(
+                fp16=False,
+                # language=max(supported_languages, key=supported_languages.get),
+                language=to_language,
+                prompt=prompts[to_language])
 
-        command = whisper.decode(model, mel, options).text
-        print(command)
-        whisper.transcribe
+            command = whisper.decode(model, mel, options).text
+            print(command)
 
-        return process_command(command)
+            return process_command(command, to_language)
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
 
-def process_command(command):
+def process_command(command, to_language):
     # Translate command to English
     command = tr.translate_text(
-        command, to_language='en', translator='google').lower()
+        command, to_language='en', from_language=to_language, translator='google').lower()
 
     print(command)
 
@@ -80,21 +87,25 @@ def process_command(command):
         return Response("other", status.HTTP_200_OK)
 
 
-class processAudio(ViewSet):
-    serializer_class = AudioSerializer
+class TranscriptionView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
 
-    def create(self, request):
+    def get_serializer(self, *args, **kwargs):
+        return AudioSerializer(*args, **kwargs)
+
+    def post(self, request):
         print("Got a request")
-        file = request.FILES["audio"]
-        to_language = request.data['to_language']
-        if not file:
-            return Response("No file provided", status=status.HTTP_400_BAD_REQUEST)
 
-        with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-            f.seek(0)
-        try:
+        serializer: Serializer = AudioSerializer(data=request.data)
+
+        if serializer.is_valid():
+            file = request.FILES["audio"]
+            to_language = request.data['to_language']
+
+            with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+                f.seek(0)
             model = whisper.load_model("small")
             audio = whisper.load_audio(f.name)
             audio = whisper.pad_or_trim(audio)
@@ -103,33 +114,39 @@ class processAudio(ViewSet):
             options = whisper.DecodingOptions(fp16=False)
 
             original = whisper.decode(model, mel, options).text
-            translated = tr.translate_text(
-                original, to_language=to_language, translator='google')
+            try:
+                translated = tr.translate_text(
+                    original, to_language=to_language, translator='google')
+            except:
+                return Response("Translation error", status.HTTP_400_BAD_REQUEST)
+            finally:
+                os.unlink(f.name)
 
-        finally:
-            os.unlink(f.name)
-
-        data = {
-            'original': original,
-            'translated': translated
-        }
-
-        return Response(data, status=status.HTTP_200_OK)
+            data = {
+                'original': original,
+                'translated': translated
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
 
 class getAudioResponse(APIView):
-    authentication_classes = []
-    permission_classes = []
+
+    def get_serializer(self, *args, **kwargs):
+        return TTSSerializer(*args, **kwargs)
 
     def post(self, request, format=None):
-        prompt = request.data['prompt']
-        to_language = request.data['to_language']
-        audio_data, path = generate_tts(prompt, to_language)
+        serializer: Serializer = TTSSerializer(data=request.data)
+        if serializer.is_valid():
+            prompt = serializer.data['prompt']
+            to_language = serializer.data['to_language']
+            audio_data, path = generate_tts(prompt, to_language)
 
-        response = HttpResponse(audio_data, content_type='audio/wav')
-        response['Content-Disposition'] = f'attachment; filename={path}'
+            response = HttpResponse(audio_data, content_type='audio/wav')
+            response['Content-Disposition'] = f'attachment; filename={path}'
 
-        return response
+            return response
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def generate_tts(text, to_language='pl'):
@@ -152,8 +169,8 @@ def generate_tts(text, to_language='pl'):
         else:
             raise Exception("Language not supported")
 
-        # FOR TESTING
-        # os.system("afplay " + f.name)
+    # FOR TESTING
+    # os.system("afplay " + f.name)
 
     with open(f.name, 'rb') as file:
         audio_data = file.read()
