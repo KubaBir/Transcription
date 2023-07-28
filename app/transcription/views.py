@@ -40,7 +40,7 @@ class commandView(APIView):
         serializer: Serializer = AudioSerializer(data=request.data)
         if serializer.is_valid():
             file = request.FILES["audio"]
-            to_language = request.data['to_language']
+            command_language = request.data['to_language']
 
             with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
                 for chunk in file.chunks():
@@ -61,21 +61,24 @@ class commandView(APIView):
             options = whisper.DecodingOptions(
                 fp16=False,
                 # language=max(supported_languages, key=supported_languages.get),
-                language=to_language,
-                prompt=prompts[to_language])
+                language=command_language,
+                prompt=prompts[command_language])
 
             command = whisper.decode(model, mel, options).text
             print(command)
 
-            return process_command(command, to_language)
+            return process_command(command, command_language)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
 
-def process_command(command, to_language):
+def process_command(command, command_language):
     # Translate command to English
-    command = tr.translate_text(
-        command, to_language='en', from_language=to_language, translator='google').lower()
-
+    if command_language != 'en':
+        command = tr.translate_text(
+            command,
+            to_language='en',
+            from_language=command_language,
+            translator='google').lower()
     print(command)
 
     # Look for keywords
