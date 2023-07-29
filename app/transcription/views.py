@@ -1,17 +1,19 @@
+import os
+import tempfile
+
+import translators as tr
+import whisper
 from django.http import HttpResponse
 from django.shortcuts import render
-from TTS.api import TTS
-from .serializers import AudioSerializer, TTSSerializer
-from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.views import APIView
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
 from rest_framework.serializers import Serializer
-from rest_framework.parsers import MultiPartParser, FormParser
-import tempfile
-import os
-import whisper
-import translators as tr
+from rest_framework.views import APIView
 from torch import cuda
+from TTS.api import TTS
+
+from .serializers import AudioSerializer, TTSSerializer
 
 
 def index(request):
@@ -48,24 +50,12 @@ class commandView(APIView):
                     f.write(chunk)
                 f.seek(0)
 
-            model = whisper.load_model("base")
-            audio = whisper.load_audio(f.name)
-            audio = whisper.pad_or_trim(audio)
-
-            mel = whisper.log_mel_spectrogram(audio).to(model.device)
-            # _, probs = model.detect_language(mel)
-
-            # for lang in supported_languages.keys():
-            #     supported_languages[lang] = probs[lang]
-            # print(supported_languages)
-
-            options = whisper.DecodingOptions(
-                fp16=cuda.is_available(),
-                # language=max(supported_languages, key=supported_languages.get),
-                language=command_language,
+            command = transcribe_from_file(
+                file_path=f.name,
+                model='base',
+                input_lang=command_language,
                 prompt=prompts[command_language])
 
-            command = whisper.decode(model, mel, options).text
             print(command)
 
             return process_command(command, command_language)
@@ -106,18 +96,12 @@ class TranscriptionView(APIView):
             file = request.FILES["audio"]
             to_language = request.data['to_language']
 
-            with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
                 for chunk in file.chunks():
                     f.write(chunk)
                 f.seek(0)
-            model = whisper.load_model("small")
-            audio = whisper.load_audio(f.name)
-            audio = whisper.pad_or_trim(audio)
 
-            mel = whisper.log_mel_spectrogram(audio).to(model.device)
-            options = whisper.DecodingOptions(fp16=cuda.is_available())
-
-            original = whisper.decode(model, mel, options).text
+            original = transcribe_from_file(f.name, 'small')
             try:
                 translated = tr.translate_text(
                     original, to_language=to_language, translator='google')
@@ -132,6 +116,25 @@ class TranscriptionView(APIView):
             }
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+
+def transcribe_from_file(file_path, model='base', input_lang=None, prompt=None):
+    print(f"Using CUDA: {cuda.is_available()}")
+    device = 'cuda' if cuda.is_available() else 'cpu'
+    model = whisper.load_model("small").to(device)
+
+    audio = whisper.load_audio(file_path)
+    audio = whisper.pad_or_trim(audio)
+    mel = whisper.log_mel_spectrogram(audio).to(model.device)
+    options = whisper.DecodingOptions(
+        fp16=cuda.is_available(),
+        language=input_lang,
+        prompt=prompt
+    )
+
+    res = whisper.decode(model, mel, options).text
+
+    return res
 
 
 class getAudioResponse(APIView):

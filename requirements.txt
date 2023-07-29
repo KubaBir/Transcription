@@ -2,5 +2,17 @@ Django >=4.0,<4.1
 djangorestframework
 translators
 TTS
-# celery >= 5.2,<5.3
-# redis
+openai-whisper
+
+# !!! python -m pip install -U 'channels[daphne]'
+
+# !!! ffmpeg required
+
+# brew install ffmpeg
+# choco install ffmpeg
+
+# Enable GPU support
+
+# pip uninstall torch
+# pip cache purge
+# pip install torch -f https://download.pytorch.org/whl/torch_stable.html

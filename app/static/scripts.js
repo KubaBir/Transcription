@@ -77,7 +77,12 @@ function getTransctipt(audioSource) {
 
         })
         .then(([prompt, player]) => getAudio(prompt, player))
-        .catch((errors) => console.log(errors))
+        .catch((errors) => {
+            console.log(errors);
+            saveAudioButton.disabled = false;
+            spinner.style.visibility = "hidden";
+
+        })
 
 }
 
