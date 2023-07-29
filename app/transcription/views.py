@@ -11,6 +11,7 @@ import tempfile
 import os
 import whisper
 import translators as tr
+from torch import cuda
 
 
 def index(request):
@@ -59,7 +60,7 @@ class commandView(APIView):
             # print(supported_languages)
 
             options = whisper.DecodingOptions(
-                fp16=False,
+                fp16=cuda.is_available(),
                 # language=max(supported_languages, key=supported_languages.get),
                 language=command_language,
                 prompt=prompts[command_language])
@@ -114,7 +115,7 @@ class TranscriptionView(APIView):
             audio = whisper.pad_or_trim(audio)
 
             mel = whisper.log_mel_spectrogram(audio).to(model.device)
-            options = whisper.DecodingOptions(fp16=False)
+            options = whisper.DecodingOptions(fp16=cuda.is_available())
 
             original = whisper.decode(model, mel, options).text
             try:
