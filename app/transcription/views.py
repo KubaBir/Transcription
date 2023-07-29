@@ -96,10 +96,10 @@ class TranscriptionView(APIView):
             file = request.FILES["audio"]
             to_language = request.data['to_language']
 
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                for chunk in file.chunks():
-                    f.write(chunk)
-                f.seek(0)
+            f = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            for chunk in file.chunks():
+                f.write(chunk)
+            f.seek(0)
 
             original = transcribe_from_file(f.name, 'small')
             try:
@@ -108,7 +108,8 @@ class TranscriptionView(APIView):
             except:
                 return Response("Translation error", status.HTTP_400_BAD_REQUEST)
             finally:
-                os.unlink(f.name)
+                # os.unlink(f.name)
+                pass
 
             data = {
                 'original': original,
@@ -175,7 +176,6 @@ def generate_tts(text, to_language='pl'):
                             file_path=f.name)
         else:
             raise Exception("Language not supported")
-
     # FOR TESTING
     # os.system("afplay " + f.name)
 

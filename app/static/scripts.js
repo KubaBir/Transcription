@@ -17,6 +17,8 @@ let audioBlob = null;
 let latestPlayer = null;
 let latestTranslation = null;
 
+let webSocket = null;
+
 startButton.addEventListener('click', record);
 saveAudioButton.addEventListener('click', saveRecording);
 postCommandButton.addEventListener('click', postCommand);
@@ -56,7 +58,7 @@ function postCommand(audioSource) {
 
 function getTransctipt(audioSource) {
     const formData = new FormData();
-    formData.append('audio', audioSource, 'recording.mp3');
+    formData.append('audio', audioSource, 'recording.wav');
     formData.append('to_language', langSelector.value);
     fetch('/api/transcribe/', {
         method: 'POST',
@@ -171,6 +173,23 @@ function getAudio(text, player) {
 function record() {
     startButton.style.backgroundColor = "green";
     saveAudioButton.disabled = false;
+    if (!webSocket) {
+        webSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/chat/'
+        );
+    }
+    webSocket.onopen = function (e) {
+        console.log("Socket opened");
+    };
+    webSocket.onclose = function (e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+    webSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        console.log(data.message)
+    };
 
     if (!mediaRecorder) {
         navigator.mediaDevices.getUserMedia({
@@ -178,7 +197,7 @@ function record() {
         })
             .then((stream) => {
                 mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.start();
+                mediaRecorder.start(1000);
                 mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
                 mediaRecorder.onstop = mediaRecorderStop;
             })
@@ -193,6 +212,19 @@ function record() {
 
 function mediaRecorderDataAvailable(e) {
     chunks.push(e.data);
+    audioBlob = new Blob(chunks, { type: 'audio/wav' });
+
+    var reader = new FileReader();
+    reader.readAsDataURL(audioBlob);
+    reader.onloadend = function () {
+        var base64data = reader.result;
+        const msg = {
+            text: langSelector.value,
+            audioBlob: base64data
+        };
+        webSocket.send(JSON.stringify(msg));
+    }
+
 }
 
 function mediaRecorderStop() {
@@ -200,12 +232,13 @@ function mediaRecorderStop() {
     playback2.style.visibility = "visible"
     saveAudioButton.style.visibility = "visible"
     postCommandButton.style.visibility = "visible"
-    audioBlob = new Blob(chunks, { type: 'audio/mp3' });
+    audioBlob = new Blob(chunks, { type: 'audio/wav' });
 
     const audioURL = window.URL.createObjectURL(audioBlob);
     playback2.src = audioURL;
     mediaRecorder = null;
     chunks = [];
+
 }
 
 function saveRecording() {
@@ -218,4 +251,10 @@ function saveRecording() {
 // Insert dummy message
 function insert() {
     createMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
+}
+
+
+function arrayBufferToBase64(arrayBuffer) {
+    const binary = String.fromCharCode.apply(null, new Uint8Array(arrayBuffer));
+    return window.btoa(binary);
 }
