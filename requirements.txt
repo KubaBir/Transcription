@@ -3,6 +3,8 @@ djangorestframework
 translators
 TTS
 openai-whisper
+speech_recognition
+pydub
 
 # !!! python -m pip install -U 'channels[daphne]'
 

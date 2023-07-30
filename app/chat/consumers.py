@@ -23,6 +23,7 @@ class ChatConsumer(WebsocketConsumer):
     def receive(self, bytes_data=None, text_data=None):
         msg = json.loads(text_data)
         text = msg.get('text')
+        text = 'en-US' if text == 'en' else text
         audio_data = msg.get('audioBlob')
         audio_data = audio_data.split(',')[1]
         audio_data = base64.b64decode(audio_data)
@@ -50,7 +51,7 @@ class ChatConsumer(WebsocketConsumer):
             r = sr.Recognizer()
             with sr.AudioFile(temp_wav_file_path) as source:
                 audio = r.record(source)
-                res = r.recognize_google(audio, language="pl")
+                res = r.recognize_google(audio, language=text)
         except UnknownValueError:
             print("Message is empty")
         finally:
