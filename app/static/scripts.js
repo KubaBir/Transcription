@@ -1,46 +1,88 @@
 const spinner = document.getElementById('spinner')
-const fileUpload = document.getElementById('audio_input');
-const playback1 = document.getElementById('playback1');
-const submitButton1 = document.getElementById('submitButton1');
+
 const listenerLang = document.getElementById('listener_lang');
 const speakerLang = document.getElementById('speaker_lang');
-submitButton1.addEventListener('click', saveAudio);
 
-const startButton = document.getElementById('start');
-const postCommandButton = document.getElementById('submitButton3');
-const recordedAudioContainer = document.getElementById('recordedAudioContainer');
-const playback2 = document.getElementById('playback2');
+const recordCommandButton = document.getElementById('recordCommandButton');
+const postCommandButton = document.getElementById('postCommandButton');
+const commandHolder = document.getElementById('commandHolder');
+recordCommandButton.addEventListener('click', recordCommand);
+postCommandButton.addEventListener('click', postCommand);
+
+const recordMsgButton = document.getElementById('recordMsgButton');
+recordMsgButton.addEventListener('click', recordMsg);
+
 const chatInput = document.getElementById('chatInput');
 const chatSendButton = document.getElementById('chatSendButton');
-
 chatSendButton.addEventListener('click', uploadMessage);
 
-let chunks = [];
 let mediaRecorder = null;
+
+let chunks = [];
 let audioBlob = null;
+
+let commandChunks = [];
+let commandAudioBlob = null;
 
 let latestPlayer = null;
 let latestTranslation = null;
 
 let webSocket = null;
 
-startButton.addEventListener('click', record);
-postCommandButton.addEventListener('click', postCommand);
 
-fileUpload.addEventListener('change', function (e) {
-    submitButton1.style.visibility = "visible";
-    submitButton1.disabled = false;
-    playback1.style.visibility = "visible";
-    const file = e.target.files[0];
-    const url = URL.createObjectURL(file);
-    playback1.src = url;
-});
+// fileUpload.addEventListener('change', function (e) {
+//     submitButton1.style.visibility = "visible";
+//     submitButton1.disabled = false;
+//     playback1.style.visibility = "visible";
+//     const file = e.target.files[0];
+//     const url = URL.createObjectURL(file);
+//     playback1.src = url;
+// });
 
-function postCommand(audioSource) {
-    audioSource = audioBlob;
+function recordCommand() {
+    if (!mediaRecorder) {
+        navigator.mediaDevices.getUserMedia({
+            audio: true,
+        })
+            .then((stream) => {
+                recordCommandButton.style.backgroundColor = "green";
+
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
+                mediaRecorder.onstop = mediaRecorderStop;
+            })
+            .catch((err) => {
+                alert(`The following error occurred: ${err}`);
+                recordMsgButton.style.backgroundColor = "red";
+            });
+    } else {
+        mediaRecorder.stop();
+    }
+
+    function mediaRecorderDataAvailable(e) {
+        commandChunks.push(e.data);
+    }
+
+    function mediaRecorderStop() {
+        recordCommandButton.style.backgroundColor = "white";
+
+        commandAudioBlob = new Blob(commandChunks, { type: 'audio/mp3' });
+        const audioURL = window.URL.createObjectURL(commandAudioBlob);
+        commandHolder.src = audioURL;
+        mediaRecorder = null;
+        commandChunks = [];
+    }
+}
+
+function postCommand() {
+    audioSource = commandAudioBlob;
+    if (audioSource == null) return;
+    spinner.style.visibility = "visible";
+
     const formData = new FormData();
     formData.append('audio', audioSource, filename = 'recording.wav');
-    formData.append('to_language', listenerLang.value);
+    formData.append('to_language', speakerLang.value);
 
     fetch('/api/command/', {
         method: 'POST',
@@ -56,6 +98,9 @@ function postCommand(audioSource) {
             }
         })
         .catch((errors) => console.log(errors))
+        .finally(() => {
+            spinner.style.visibility = "hidden";
+        })
 
 }
 
@@ -71,7 +116,6 @@ function getTransctipt(audioSource) {
         .then((data) => {
             let player = createMessage(data);
             playback2.style.visibility = "hidden"
-            spinner.style.visibility = "hidden";
             spinner.style.visibility = "hidden";
             playback1.style.visibility = 'hidden';
             submitButton1.style.visibility = 'hidden';
@@ -139,15 +183,15 @@ function createMessage(data) {
     return player;
 }
 
-function saveAudio() {
-    if (document.getElementById("audio_input").value == "") {
-        return false;
-    }
-    submitButton1.disabled = true;
-    spinner.style.visibility = "visible";
-    var input = document.getElementById('audio_input');
-    getTransctipt(input.files[0]);
-}
+// function saveAudio() {
+//     if (document.getElementById("audio_input").value == "") {
+//         return false;
+//     }
+//     submitButton1.disabled = true;
+//     spinner.style.visibility = "visible";
+//     var input = document.getElementById('audio_input');
+//     getTransctipt(input.files[0]);
+// }
 
 // Text --> Audio file
 function getAudio(text, language, player) {
@@ -171,8 +215,8 @@ function getAudio(text, language, player) {
 
 }
 
-function record() {
-    startButton.style.backgroundColor = "green";
+function recordMsg() {
+    recordMsgButton.style.backgroundColor = "green";
     if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
         webSocket = new WebSocket(
             'ws://'
@@ -188,7 +232,7 @@ function record() {
     };
     webSocket.onmessage = function (e) {
         const data = JSON.parse(e.data);
-        chatInput.value = data;
+        chatInput.value = data.message;
         console.log(data.message)
     };
 
@@ -204,7 +248,7 @@ function record() {
             })
             .catch((err) => {
                 alert(`The following error occurred: ${err}`);
-                startButton.style.backgroundColor = "red";
+                recordMsgButton.style.backgroundColor = "red";
             });
     } else {
         mediaRecorder.stop();
@@ -226,27 +270,24 @@ function record() {
 
     }
     function mediaRecorderStop() {
-        startButton.style.backgroundColor = "white";
-        playback2.style.visibility = "visible"
-        postCommandButton.style.visibility = "visible"
-        audioBlob = new Blob(chunks, { type: 'audio/wav' });
-
-        const audioURL = window.URL.createObjectURL(audioBlob);
-        playback2.src = audioURL;
+        recordMsgButton.style.backgroundColor = "white";
+        // playback2.style.visibility = "visible"
+        // postCommandButton.style.visibility = "visible"
+        // audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        // const audioURL = window.URL.createObjectURL(audioBlob);
+        // playback2.src = audioURL;
         mediaRecorder = null;
         chunks = [];
 
     }
 };
 
+// Translate msg from chatInput and crate a chat message with TTS
 function uploadMessage() {
     const msg = chatInput.value;
     if (msg == "") return;
 
-    console.log(msg);
-    console.log(listenerLang.value);
-
-    // Translate
+    // Translate and send for TTS
     data = {
         'prompt': msg,
         'to_language': listenerLang.value
@@ -260,7 +301,6 @@ function uploadMessage() {
     })
         .then(response => response.json())
         .then(data => {
-            console.log(data);
             let player = createMessage(data);
             const language = listenerLang.value;
             const msg = data['translation'];
@@ -268,10 +308,10 @@ function uploadMessage() {
             return [msg, language, player];
         })
         .then(([msg, language, player]) => getAudio(msg, language, player))
+        .catch((errors) => console.log(errors))
         .finally(() => {
             chatInput.value = "";
         })
-        .catch((errors) => console.log(errors))
 }
 
 // Insert dummy message

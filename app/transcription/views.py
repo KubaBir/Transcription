@@ -45,16 +45,19 @@ class commandView(APIView):
             file = request.FILES["audio"]
             command_language = request.data['to_language']
 
-            with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.name)[1], delete=False) as f:
+            f = tempfile.NamedTemporaryFile('.wav', delete=False)
+            try:
                 for chunk in file.chunks():
                     f.write(chunk)
                 f.seek(0)
 
-            command = transcribe_from_file(
-                file_path=f.name,
-                model='base',
-                input_lang=command_language,
-                prompt=prompts[command_language])
+                command = transcribe_from_file(
+                    file_path=f.name,
+                    model='base',
+                    input_lang=command_language,
+                    prompt=prompts[command_language])
+            finally:
+                os.unlink(f.name)
 
             print(command)
 
@@ -97,19 +100,18 @@ class TranscriptionView(APIView):
             to_language = request.data['to_language']
 
             f = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-            for chunk in file.chunks():
-                f.write(chunk)
-            f.seek(0)
-
-            original = transcribe_from_file(f.name, 'small')
             try:
+                for chunk in file.chunks():
+                    f.write(chunk)
+                f.seek(0)
+
+                original = transcribe_from_file(f.name, 'small')
                 translated = tr.translate_text(
                     original, to_language=to_language, translator='google')
             except:
                 return Response("Translation error", status.HTTP_400_BAD_REQUEST)
             finally:
-                # os.unlink(f.name)
-                pass
+                os.unlink(f.name)
 
             data = {
                 'original': original,
@@ -138,7 +140,7 @@ def transcribe_from_file(file_path, model='base', input_lang=None, prompt=None):
     return res
 
 
-class getAudioResponse(APIView):
+class getAudioResponseView(APIView):
 
     def get_serializer(self, *args, **kwargs):
         return TTSSerializer(*args, **kwargs)

@@ -1,7 +1,7 @@
 #outputfield {
     border: 1px solid #c5c5c5;
     border-radius: 4px 4px 0 0;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 5 / 3;
     width: 70%;
     margin: 2em auto;
     margin-bottom: 0;
@@ -92,7 +92,7 @@
     align-items: center;
 }
 
-#start {
+.micBtn {
     border: 2px solid gray;
     border-radius: 50%;
     height: 75px;
