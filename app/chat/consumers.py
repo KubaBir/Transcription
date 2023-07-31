@@ -42,12 +42,13 @@ class ChatConsumer(WebsocketConsumer):
                 wave_file.setsampwidth(2)
                 wave_file.writeframes(pcm_data._data)
 
-        # f = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-        # f.write(bytes_data)
-        # res = transcribe_from_file(f.name, 'tiny')
-        # os.unlink(f.name)
         try:
             res = ''
+
+            # OpenAI Whisper
+            # res = transcribe_from_file(temp_wav_file_path, 'tiny')
+
+            # Google API
             r = sr.Recognizer()
             with sr.AudioFile(temp_wav_file_path) as source:
                 audio = r.record(source)

@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from torch import cuda
 from TTS.api import TTS
 
-from .serializers import AudioSerializer, TTSSerializer
+from .serializers import AudioSerializer, TTSSerializer, TranslationSerializer
 
 
 def index(request):
@@ -147,8 +147,8 @@ class getAudioResponse(APIView):
         serializer: Serializer = TTSSerializer(data=request.data)
         if serializer.is_valid():
             prompt = serializer.data['prompt']
-            to_language = serializer.data['to_language']
-            audio_data, path = generate_tts(prompt, to_language)
+            language = serializer.data['language']
+            audio_data, path = generate_tts(prompt, language)
 
             response = HttpResponse(audio_data, content_type='audio/wav')
             response['Content-Disposition'] = f'attachment; filename={path}'
@@ -157,20 +157,15 @@ class getAudioResponse(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def generate_tts(text, to_language='pl'):
-    # Translate to destination language
-    text = tr.translate_text(
-        text, to_language=to_language, translator='google')
-
-    # Create a file with read translation
+def generate_tts(text, language='pl'):
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-        if to_language == 'pl':
+        if language == 'pl':
             tts = TTS(model_name="tts_models/pl/mai_female/vits")
             tts.tts_to_file(text=text, file_path=f.name)
-        elif to_language == 'en':
+        elif language == 'en':
             tts = TTS(model_name="tts_models/en/jenny/jenny")
             tts.tts_to_file(text=text, file_path=f.name)
-        elif to_language == 'es':
+        elif language == 'es':
             tts = TTS(model_name="tts_models/es/css10/vits")
             tts.tts_to_file(text=text,
                             file_path=f.name)
@@ -184,3 +179,34 @@ def generate_tts(text, to_language='pl'):
     os.unlink(f.name)
 
     return (audio_data, f.name)
+
+
+class TranslationView(APIView):
+    def get_serializer(self, *args, **kwargs):
+        return TranslationSerializer(*args, **kwargs)
+
+    def post(self, request, format=None):
+        serializer: Serializer = TranslationSerializer(data=request.data)
+        if serializer.is_valid():
+            msg = serializer.data['prompt']
+            to_language = serializer.data['to_language']
+            from_language = serializer.data.get('from_language', 'auto')
+
+            translation = translate(msg, to_language, from_language)
+
+            data = {
+                'original': msg,
+                'translation': translation
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def translate(msg, to_language, from_language=None):
+    res = tr.translate_text(
+        msg,
+        to_language=to_language,
+        from_language=from_language,
+        translator='google')
+
+    return res

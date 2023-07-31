@@ -2,14 +2,19 @@ const spinner = document.getElementById('spinner')
 const fileUpload = document.getElementById('audio_input');
 const playback1 = document.getElementById('playback1');
 const submitButton1 = document.getElementById('submitButton1');
-const langSelector = document.getElementById('lang_selector');
+const listenerLang = document.getElementById('listener_lang');
+const speakerLang = document.getElementById('speaker_lang');
 submitButton1.addEventListener('click', saveAudio);
 
 const startButton = document.getElementById('start');
-const saveAudioButton = document.getElementById('submitButton2');
 const postCommandButton = document.getElementById('submitButton3');
 const recordedAudioContainer = document.getElementById('recordedAudioContainer');
 const playback2 = document.getElementById('playback2');
+const chatInput = document.getElementById('chatInput');
+const chatSendButton = document.getElementById('chatSendButton');
+
+chatSendButton.addEventListener('click', uploadMessage);
+
 let chunks = [];
 let mediaRecorder = null;
 let audioBlob = null;
@@ -20,7 +25,6 @@ let latestTranslation = null;
 let webSocket = null;
 
 startButton.addEventListener('click', record);
-saveAudioButton.addEventListener('click', saveRecording);
 postCommandButton.addEventListener('click', postCommand);
 
 fileUpload.addEventListener('change', function (e) {
@@ -36,7 +40,7 @@ function postCommand(audioSource) {
     audioSource = audioBlob;
     const formData = new FormData();
     formData.append('audio', audioSource, filename = 'recording.wav');
-    formData.append('to_language', langSelector.value);
+    formData.append('to_language', listenerLang.value);
 
     fetch('/api/command/', {
         method: 'POST',
@@ -55,11 +59,10 @@ function postCommand(audioSource) {
 
 }
 
-
 function getTransctipt(audioSource) {
     const formData = new FormData();
     formData.append('audio', audioSource, 'recording.wav');
-    formData.append('to_language', langSelector.value);
+    formData.append('to_language', listenerLang.value);
     fetch('/api/transcribe/', {
         method: 'POST',
         body: formData
@@ -68,7 +71,6 @@ function getTransctipt(audioSource) {
         .then((data) => {
             let player = createMessage(data);
             playback2.style.visibility = "hidden"
-            saveAudioButton.style.visibility = "hidden"
             spinner.style.visibility = "hidden";
             spinner.style.visibility = "hidden";
             playback1.style.visibility = 'hidden';
@@ -81,7 +83,6 @@ function getTransctipt(audioSource) {
         .then(([prompt, player]) => getAudio(prompt, player))
         .catch((errors) => {
             console.log(errors);
-            saveAudioButton.disabled = false;
             spinner.style.visibility = "hidden";
 
         })
@@ -97,7 +98,7 @@ function createMessage(data) {
     original.className = 'original';
 
     let translation = document.createElement("div");
-    translation.textContent = data["translated"];
+    translation.textContent = data["translation"];
     translation.className = 'translation';
 
     let player = document.createElement("audio");
@@ -149,10 +150,10 @@ function saveAudio() {
 }
 
 // Text --> Audio file
-function getAudio(text, player) {
+function getAudio(text, language, player) {
     data = {
         'prompt': text,
-        'to_language': langSelector.value
+        'language': language
     }
     fetch(`/api/voiceover/`, {
         method: "POST",
@@ -172,8 +173,7 @@ function getAudio(text, player) {
 
 function record() {
     startButton.style.backgroundColor = "green";
-    saveAudioButton.disabled = false;
-    if (!webSocket) {
+    if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
         webSocket = new WebSocket(
             'ws://'
             + window.location.host
@@ -188,6 +188,7 @@ function record() {
     };
     webSocket.onmessage = function (e) {
         const data = JSON.parse(e.data);
+        chatInput.value = data;
         console.log(data.message)
     };
 
@@ -208,53 +209,72 @@ function record() {
     } else {
         mediaRecorder.stop();
     }
+    function mediaRecorderDataAvailable(e) {
+        chunks.push(e.data);
+        audioBlob = new Blob(chunks, { type: 'audio/wav' });
+
+        var reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = function () {
+            var base64data = reader.result;
+            const msg = {
+                text: speakerLang.value,
+                audioBlob: base64data
+            };
+            webSocket.send(JSON.stringify(msg));
+        }
+
+    }
+    function mediaRecorderStop() {
+        startButton.style.backgroundColor = "white";
+        playback2.style.visibility = "visible"
+        postCommandButton.style.visibility = "visible"
+        audioBlob = new Blob(chunks, { type: 'audio/wav' });
+
+        const audioURL = window.URL.createObjectURL(audioBlob);
+        playback2.src = audioURL;
+        mediaRecorder = null;
+        chunks = [];
+
+    }
 };
 
-function mediaRecorderDataAvailable(e) {
-    chunks.push(e.data);
-    audioBlob = new Blob(chunks, { type: 'audio/wav' });
+function uploadMessage() {
+    const msg = chatInput.value;
+    if (msg == "") return;
 
-    var reader = new FileReader();
-    reader.readAsDataURL(audioBlob);
-    reader.onloadend = function () {
-        var base64data = reader.result;
-        const msg = {
-            text: langSelector.value,
-            audioBlob: base64data
-        };
-        webSocket.send(JSON.stringify(msg));
+    console.log(msg);
+    console.log(listenerLang.value);
+
+    // Translate
+    data = {
+        'prompt': msg,
+        'to_language': listenerLang.value
     }
+    fetch(`/api/translate/`, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {
+            "Content-Type": "application/json",
+        },
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            let player = createMessage(data);
+            const language = listenerLang.value;
+            const msg = data['translation'];
 
-}
-
-function mediaRecorderStop() {
-    startButton.style.backgroundColor = "white";
-    playback2.style.visibility = "visible"
-    saveAudioButton.style.visibility = "visible"
-    postCommandButton.style.visibility = "visible"
-    audioBlob = new Blob(chunks, { type: 'audio/wav' });
-
-    const audioURL = window.URL.createObjectURL(audioBlob);
-    playback2.src = audioURL;
-    mediaRecorder = null;
-    chunks = [];
-
-}
-
-function saveRecording() {
-    saveAudioButton.disabled = true;
-    spinner.style.visibility = "visible";
-
-    getTransctipt(audioBlob);
+            return [msg, language, player];
+        })
+        .then(([msg, language, player]) => getAudio(msg, language, player))
+        .finally(() => {
+            chatInput.value = "";
+        })
+        .catch((errors) => console.log(errors))
 }
 
 // Insert dummy message
 function insert() {
     createMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
-}
-
-
-function arrayBufferToBase64(arrayBuffer) {
-    const binary = String.fromCharCode.apply(null, new Uint8Array(arrayBuffer));
-    return window.btoa(binary);
 }

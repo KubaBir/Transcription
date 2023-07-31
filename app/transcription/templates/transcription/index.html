@@ -24,9 +24,15 @@
             <button type="submit" id="submitButton1" style="visibility: hidden;">Submit</button>
         </div>
 
-        <div style="display: flex; flex-direction: column; align-items: center; padding-top: 3rem;">
-            <label for="language">Language</label>
-            <select name="lan_selecetor" id="lang_selector">
+        <div style="display: flex; flex-direction: column; align-items: center; padding-top: 3rem; width: 30%;">
+            <label>Listener Language</label>
+            <select id="listener_lang" class="lang_selector">
+                <option value="pl">pl</option>
+                <option value="en">en</option>
+                <option value="es">es</option>
+            </select>
+            <label>Speaker Language</label>
+            <select id="speaker_lang" class="lang_selector">
                 <option value="pl">pl</option>
                 <option value="en">en</option>
                 <option value="es">es</option>
@@ -49,13 +55,17 @@
                 </svg>
             </button>
             <audio id="playback2" class="audioslider" controls=""></audio>
-            <button id="submitButton2" style="visibility: hidden;">Save</button>
             <button id="submitButton3" style="visibility: hidden;">Command</button>
 
         </div>
     </div>
 
-    <div id="outputfield"></div>
+    <div id="outputfield">
+    </div>
+    <div class="chatInputContainer">
+        <textarea id="chatInput"></textarea>
+        <button id="chatSendButton">Send</button>
+    </div>
 </body>
 
 <script src="{% static 'scripts.js' %}"></script>

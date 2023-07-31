@@ -11,7 +11,16 @@ class AudioSerializer(serializers.Serializer):
 
 class TTSSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=255)
+    language = serializers.CharField(max_length=255)
+
+    class Meta:
+        fields = '__all__'
+
+
+class TranslationSerializer(serializers.Serializer):
+    prompt = serializers.CharField(max_length=255)
     to_language = serializers.CharField(max_length=255)
+    from_language = serializers.CharField(max_length=255, required=False)
 
     class Meta:
         fields = '__all__'
