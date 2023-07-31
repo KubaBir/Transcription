@@ -4,7 +4,6 @@ import json
 import os
 import tempfile
 import wave
-
 import speech_recognition as sr
 from channels.generic.websocket import (AsyncWebsocketConsumer,
                                         WebsocketConsumer)
@@ -23,6 +22,7 @@ class ChatConsumer(WebsocketConsumer):
     def receive(self, bytes_data=None, text_data=None):
         msg = json.loads(text_data)
         text = msg.get('text')
+        messages = msg.get('messages')
         text = 'en-US' if text == 'en' else text
         audio_data = msg.get('audioBlob')
         audio_data = audio_data.split(',')[1]
@@ -46,7 +46,7 @@ class ChatConsumer(WebsocketConsumer):
             res = ''
 
             # OpenAI Whisper
-            # res = transcribe_from_file(temp_wav_file_path, 'tiny')
+            # res = transcribe_from_file(temp_wav_file_path, 'small')
 
             # Google API
             r = sr.Recognizer()
@@ -57,4 +57,17 @@ class ChatConsumer(WebsocketConsumer):
             print("Message is empty")
         finally:
             os.unlink(temp_wav_file_path)
-        self.send(text_data=json.dumps({"message": res}))
+
+        if 'stop' in res:
+            res = res.replace('stop', '')
+            data = {
+                'message': res,
+                'done': True
+            }
+        else:
+            data = {
+                'message': res,
+                'done': False
+            }
+
+        self.send(text_data=json.dumps(data))

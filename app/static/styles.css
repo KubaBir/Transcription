@@ -54,7 +54,11 @@
 }
 
 .original {
-    /* position: relative; */
+    grid-row-start: 1;
+    grid-column-start: 1;
+}
+
+.chat_response {
     grid-row-start: 1;
     grid-column-start: 1;
 }

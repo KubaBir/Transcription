@@ -24,3 +24,10 @@ class TranslationSerializer(serializers.Serializer):
 
     class Meta:
         fields = '__all__'
+
+
+class ChatSerializer(serializers.Serializer):
+    messages = serializers.ListField(child=serializers.DictField())
+
+    class Meta:
+        fields = '__all__'

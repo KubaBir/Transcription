@@ -16,6 +16,9 @@ const chatInput = document.getElementById('chatInput');
 const chatSendButton = document.getElementById('chatSendButton');
 chatSendButton.addEventListener('click', uploadMessage);
 
+let chatBox = document.getElementById("outputfield");
+
+
 let mediaRecorder = null;
 
 let chunks = [];
@@ -28,6 +31,10 @@ let latestPlayer = null;
 let latestTranslation = null;
 
 let webSocket = null;
+
+var conversataion = [];
+
+var messageEnded = false;
 
 
 // fileUpload.addEventListener('change', function (e) {
@@ -135,7 +142,7 @@ function getTransctipt(audioSource) {
 
 function createMessage(data) {
     let d = document.createElement("div");
-    d.className = 'message';
+    d.className = 'message prompt';
 
     let original = document.createElement("div");
     original.textContent = data["original"];
@@ -173,12 +180,22 @@ function createMessage(data) {
     d.appendChild(translation);
     d.appendChild(player);
     d.appendChild(btn_translate);
-    let container = document.getElementById("outputfield");
-    container.appendChild(d);
-    container.scrollTop = container.scrollHeight;
+    chatBox.appendChild(d);
+    chatBox.scrollTop = chatBox.scrollHeight;
 
     latestTranslation = btn_translate;
     latestPlayer = player;
+
+    conversataion = [];
+    const messages = chatBox.children
+    for (var i = 0; i < messages.length; i++) {
+        var message = messages[i];
+        if (message.classList.contains('prompt')) {
+            conversataion.push({ 'role': 'user', 'content': message.firstChild.innerHTML })
+        } else if (message.classList.contains('assistant')) {
+            conversataion.push({ 'role': 'assistant', 'content': message.firstChild.innerHTML })
+        }
+    }
 
     return player;
 }
@@ -215,6 +232,19 @@ function getAudio(text, language, player) {
 
 }
 
+function getChatResponse() {
+    fetch(`/api/chat/`, {
+        method: "POST",
+        body: JSON.stringify({ 'messages': conversataion }),
+        headers: {
+            "Content-Type": "application/json",
+        },
+    })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(errors => console.log(errors))
+}
+
 function recordMsg() {
     recordMsgButton.style.backgroundColor = "green";
     if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
@@ -231,12 +261,24 @@ function recordMsg() {
         console.error('Chat socket closed unexpectedly');
     };
     webSocket.onmessage = function (e) {
+        if (messageEnded) return;
         const data = JSON.parse(e.data);
         chatInput.value = data.message;
-        console.log(data.message)
+        // console.log(data.message)
+
+        if (data.done && mediaRecorder) {
+            messageEnded = true;
+            mediaRecorder.stop();
+            console.log("Got the stop command");
+            uploadMessage(getChatResponse);
+
+            // console.log(data.response);
+            // createMessage({ 'originial': data.response.content, 'translation': '' })
+        }
     };
 
     if (!mediaRecorder) {
+        messageEnded = false;
         navigator.mediaDevices.getUserMedia({
             audio: true,
         })
@@ -262,6 +304,7 @@ function recordMsg() {
         reader.onloadend = function () {
             var base64data = reader.result;
             const msg = {
+                messages: conversataion,
                 text: speakerLang.value,
                 audioBlob: base64data
             };
@@ -283,7 +326,7 @@ function recordMsg() {
 };
 
 // Translate msg from chatInput and crate a chat message with TTS
-function uploadMessage() {
+function uploadMessage(callback) {
     const msg = chatInput.value;
     if (msg == "") return;
 
@@ -311,6 +354,7 @@ function uploadMessage() {
         .catch((errors) => console.log(errors))
         .finally(() => {
             chatInput.value = "";
+            callback();
         })
 }
 

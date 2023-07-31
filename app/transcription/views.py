@@ -1,5 +1,6 @@
 import os
 import tempfile
+import openai
 
 import translators as tr
 import whisper
@@ -13,7 +14,7 @@ from rest_framework.views import APIView
 from torch import cuda
 from TTS.api import TTS
 
-from .serializers import AudioSerializer, TTSSerializer, TranslationSerializer
+from .serializers import AudioSerializer, TTSSerializer, TranslationSerializer, ChatSerializer
 
 
 def index(request):
@@ -45,7 +46,7 @@ class commandView(APIView):
             file = request.FILES["audio"]
             command_language = request.data['to_language']
 
-            f = tempfile.NamedTemporaryFile('.wav', delete=False)
+            f = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
             try:
                 for chunk in file.chunks():
                     f.write(chunk)
@@ -212,3 +213,21 @@ def translate(msg, to_language, from_language=None):
         translator='google')
 
     return res
+
+
+class ChatPromptView(APIView):
+    def get_serializer(self, *args, **kwargs):
+        return ChatSerializer(*args, **kwargs)
+
+    def post(self, request, format=None):
+        serializer: Serializer = ChatSerializer(data=request.data)
+        if serializer.is_valid():
+            messages = serializer.data.get('messages')
+            openai.api_key = os.getenv("OPENAI_API_KEY")
+
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=messages)
+            chat_response = completion.choices[0].message
+            return Response(chat_response, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

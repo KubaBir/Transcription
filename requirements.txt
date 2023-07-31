@@ -5,6 +5,7 @@ TTS
 openai-whisper
 speech_recognition
 pydub
+openai
 
 # !!! python -m pip install -U 'channels[daphne]'
 
