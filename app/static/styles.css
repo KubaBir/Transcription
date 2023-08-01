@@ -38,16 +38,7 @@
     margin: auto;
 }
 
-.message {
-    padding: 10px 8px;
-    margin: 0.5em;
-    background-color: aquamarine;
-    border-radius: 4px;
 
-    display: grid;
-    grid-template-columns: 3fr;
-    align-items: center;
-}
 
 .message_audio_player {
     grid-column-start: 2;
@@ -120,6 +111,24 @@
     margin-bottom: 1.2em;
     height: 30px;
     width: 50px;
+}
+
+.msg {
+    padding: 10px 8px;
+    margin: 0.5em;
+    border-radius: 4px;
+
+    display: grid;
+    grid-template-columns: 3fr;
+    align-items: center;
+}
+
+.msg-assistant {
+    background-color: rgb(139, 255, 255);
+}
+
+.msg-user {
+    background-color: aquamarine;
 }
 
 

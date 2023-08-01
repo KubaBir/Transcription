@@ -121,7 +121,7 @@ function getTransctipt(audioSource) {
     })
         .then((response) => response.json())
         .then((data) => {
-            let player = createMessage(data);
+            let player = createUserMessage(data);
             playback2.style.visibility = "hidden"
             spinner.style.visibility = "hidden";
             playback1.style.visibility = 'hidden';
@@ -140,9 +140,9 @@ function getTransctipt(audioSource) {
 
 }
 
-function createMessage(data) {
+function createUserMessage(data) {
     let d = document.createElement("div");
-    d.className = 'message prompt';
+    d.className = 'msg msg-user';
 
     let original = document.createElement("div");
     original.textContent = data["original"];
@@ -186,29 +186,9 @@ function createMessage(data) {
     latestTranslation = btn_translate;
     latestPlayer = player;
 
-    conversataion = [];
-    const messages = chatBox.children
-    for (var i = 0; i < messages.length; i++) {
-        var message = messages[i];
-        if (message.classList.contains('prompt')) {
-            conversataion.push({ 'role': 'user', 'content': message.firstChild.innerHTML })
-        } else if (message.classList.contains('assistant')) {
-            conversataion.push({ 'role': 'assistant', 'content': message.firstChild.innerHTML })
-        }
-    }
-
+    conversataion.push({ 'role': 'user', 'content': data["original"] })
     return player;
 }
-
-// function saveAudio() {
-//     if (document.getElementById("audio_input").value == "") {
-//         return false;
-//     }
-//     submitButton1.disabled = true;
-//     spinner.style.visibility = "visible";
-//     var input = document.getElementById('audio_input');
-//     getTransctipt(input.files[0]);
-// }
 
 // Text --> Audio file
 function getAudio(text, language, player) {
@@ -227,6 +207,9 @@ function getAudio(text, language, player) {
         .then(audioBlob => {
             const audioURL = URL.createObjectURL(audioBlob);
             player.src = audioURL;
+
+            if (player.parentElement.classList.contains('msg-assistant'))
+                player.play();
         })
         .catch((errors) => console.log(errors))
 
@@ -241,8 +224,37 @@ function getChatResponse() {
         },
     })
         .then(response => response.json())
-        .then(data => console.log(data))
+        // .then(data => console.log(data))
+        .then(data => createAssistantMessage(data))
         .catch(errors => console.log(errors))
+    // let chatMsg = { role: 'assistant', content: 'Dzień dobry! W czym mogę pomóc?' };
+    // console.log(chatMsg);
+    // createAssistantMessage(chatMsg);
+}
+
+function createAssistantMessage(message) {
+    const text = message.content;
+
+    let msgHolder = document.createElement("div");
+    msgHolder.className = 'msg msg-assistant';
+
+    let textDiv = document.createElement("div");
+    textDiv.textContent = text;
+    textDiv.className = 'original';
+
+    let player = document.createElement("audio");
+    player.setAttribute("controls", "");
+    player.className = 'message_audio_player';
+
+    getAudio(message.content, speakerLang.value, player)
+
+    msgHolder.appendChild(textDiv);
+    msgHolder.appendChild(player);
+
+    chatBox.appendChild(msgHolder);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    conversataion.push(message);
 }
 
 function recordMsg() {
@@ -270,7 +282,7 @@ function recordMsg() {
             messageEnded = true;
             mediaRecorder.stop();
             console.log("Got the stop command");
-            uploadMessage(getChatResponse);
+            uploadMessage();
 
             // console.log(data.response);
             // createMessage({ 'originial': data.response.content, 'translation': '' })
@@ -326,7 +338,7 @@ function recordMsg() {
 };
 
 // Translate msg from chatInput and crate a chat message with TTS
-function uploadMessage(callback) {
+function uploadMessage() {
     const msg = chatInput.value;
     if (msg == "") return;
 
@@ -344,21 +356,24 @@ function uploadMessage(callback) {
     })
         .then(response => response.json())
         .then(data => {
-            let player = createMessage(data);
+            let player = createUserMessage(data);
             const language = listenerLang.value;
             const msg = data['translation'];
 
             return [msg, language, player];
         })
-        .then(([msg, language, player]) => getAudio(msg, language, player))
+        .then(([msg, language, player]) => {
+            getChatResponse();
+            getAudio(msg, language, player);
+        }
+        )
         .catch((errors) => console.log(errors))
         .finally(() => {
             chatInput.value = "";
-            callback();
         })
 }
 
 // Insert dummy message
 function insert() {
-    createMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
+    createUserMessage({ 'original': "testfkdjfgbkajsfbksja dbfkkdsjbvaksdjvbakjsdbvkjas bdkvjabskdjvbkasjdbvkjabsdvd ksjsjadvfmznvckdfvsdjfhsvmessage" });
 }
